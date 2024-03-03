@@ -2,7 +2,7 @@
 * VCGLib                                                            o o     *
 * Visual and Computer Graphics Library                            o     o   *
 *                                                                _   O  _   *
-* Copyright(C) 2004-2012                                           \/)\/    *
+* Copyright(C) 2004-2024                                           \/)\/    *
 * Visual Computing Lab                                            /\/|      *
 * ISTI - Italian National Research Council                           |      *
 *                                                                    \      *
@@ -40,12 +40,12 @@ class MyFace;
 class MyVertex;
 struct MyUsedTypes : public UsedTypes<
 	Use<MyVertex>   ::AsVertexType,
-	Use<MyFace>     ::AsFaceType>{};
+	Use<MyFace>     ::AsFaceType
+>{};
 
-	class MyVertex  : public Vertex<MyUsedTypes, vertex::Coord3f, vertex::BitFlags >{};
-	class MyFace    : public Face<MyUsedTypes, face::VertexRef, vertex::BitFlags > {};
-	class MyMesh    : public tri::TriMesh< vector<MyVertex>, vector<MyFace>
-> {};
+class MyVertex  : public Vertex<MyUsedTypes, vertex::Coord3f, vertex::BitFlags>{};
+class MyFace    : public Face<MyUsedTypes, face::VertexRef, vertex::BitFlags> {};
+class MyMesh    : public tri::TriMesh< vector<MyVertex>, vector<MyFace>> {};
 
 int main( int argc, char **argv )
 {
@@ -64,14 +64,18 @@ int main( int argc, char **argv )
 	}
 
 	assert(original.VN()>0);
+
 	// OpenVDB remeshing parameters
-	double targetLenPerc=0.2d;
-	double isovalue=0.0d;
-	double adaptivity=0.0d;
+	double targetLenPerc = 0.2;
+	double isovalue = 0.0;
+	double adaptivity = 0.0;
+	bool useLevelSet = false;	// Use level set instead of volume
 	if(argc>=3) targetLenPerc = atof(argv[2]);
 	if(argc>=4) isovalue = atof(argv[3]);
 	if(argc>=5) adaptivity = atof(argv[4]);
-	double voxelSize = targetLenPerc*(original.bbox.Diag()/100.0d);
+	if(argc>=6) useLevelSet = atoi(argv[5]);
+	
+	double voxelSize = targetLenPerc * (original.bbox.Diag() / 100.0);
 
 	// Mesh cleaning
 	tri::Clean<MyMesh>::RemoveUnreferencedVertex(original);
@@ -83,9 +87,13 @@ int main( int argc, char **argv )
 
 	printf(" Input mesh %8i v %8i f\n",original.VN(),original.FN());
 
-	adapter.loadMesh(original);
+	adapter.setMesh(&original);
 	adapter.setVoxelSize(voxelSize);
-	adapter.meshToVolume();
+	if(useLevelSet){
+		adapter.meshToLevelSet();
+	}else{
+		adapter.meshToVolume();
+	}
 
 	// OpenVDB volume to mesh
 	adapter.setIsovalue(isovalue);
