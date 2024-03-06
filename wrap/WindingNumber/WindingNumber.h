@@ -1,9 +1,12 @@
-#ifndef WINDING_NUMBER_CPP
-#define WINDING_NUMBER_CPP
+#pragma once
 
-#include <UT_SolidAngle.h>
+#ifndef WINDING_NUMBER_H
+#define WINDING_NUMBER_H
+
+#include <wrap/WindingNumber/UT_SolidAngle.h>
 #include <vcg/complex/complex.h>
 
+namespace vcg::tri{
 template<class TRI_MESH_TYPE>
 class WindingNumber {
     typedef TRI_MESH_TYPE MeshType;
@@ -45,5 +48,6 @@ class WindingNumber {
 		return solid_angle.computeSolidAngle(pt, accuracy_scale) / (4.0 * M_PI);
 	}
 };
+}
 
 #endif

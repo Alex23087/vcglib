@@ -1,5 +1,7 @@
-#ifndef OPENVDB_VCGLIB_ADAPTER_CPP
-#define OPENVDB_VCGLIB_ADAPTER_CPP
+#pragma once
+
+#ifndef OPENVDB_VCGLIB_ADAPTER_H
+#define OPENVDB_VCGLIB_ADAPTER_H
 
 #include <vcg/complex/complex.h>
 #include <vcg/complex/allocate.h>
@@ -7,10 +9,9 @@
 #include <openvdb/tools/MeshToVolume.h>
 #include <openvdb/tools/VolumeToMesh.h>
 #include <openvdb/util/Util.h>
-#include "WindingNumber.cpp"
+#include <wrap/WindingNumber/WindingNumber.h>
 
-namespace vcg{
-namespace tri{
+namespace vcg::tri{
     
 template<class TRI_MESH_TYPE>
 class OpenVDBAdapter {
@@ -68,22 +69,25 @@ class OpenVDBAdapter {
         meshDataAdapter.setTransform(xform);
 
         windingNumber.init(*m);
-        auto interiorTest = [xform, &windingNumber = windingNumber](const openvdb::Coord &coord) -> bool
+        auto interiorTest = [xform, &windingNumber = windingNumber, voxelSize = voxelSize](const openvdb::Coord &coord) -> bool
         {
             auto worldCoord = xform->indexToWorld(coord);
-            auto coordV = std::vector<ScalarType>{
-                static_cast<ScalarType>(worldCoord.x()),
-                static_cast<ScalarType>(worldCoord.y()),
-                static_cast<ScalarType>(worldCoord.z())
+            // Using float instead of ScalarType because the winding number lib uses float internally.
+            auto coordV = std::vector<float>{
+                static_cast<float>(worldCoord.x()),
+                static_cast<float>(worldCoord.y()),
+                static_cast<float>(worldCoord.z())
             };
-            auto wn = windingNumber.computeWindingNumber(coordV);
-            return fabs(wn) >= 0.5 ? true : false;
+            auto wn = windingNumber.computeWindingNumber(coordV, voxelSize);
+            return fabs(wn) >= 0.5f ? true : false;
         };
 
-        float outerBand = (isovalue > 0 ? isovalue/voxelSize : 0) + 0.5f;
-        float innerBand = (isovalue < 0 ? (-isovalue)/voxelSize : 0) + 0.5f;
+        float outerBand = (isovalue > 0 ? isovalue/voxelSize : 0.0f) + 0.5f;
+        float innerBand = (isovalue < 0 ? (-isovalue)/voxelSize : 0.0f) + 0.5f;
 
-        grid = openvdb::tools::meshToVolume<GridType>(meshDataAdapter, *xform, outerBand, innerBand, 0, nullptr, interiorTest, openvdb::tools::EVAL_EVERY_TILE);
+        // NullInterrupter needed because openvdb does not correctly pass parameters otherwise.
+        openvdb::util::NullInterrupter nullInterrupter;
+        grid = openvdb::tools::meshToVolume<GridType>(nullInterrupter, meshDataAdapter, *xform, outerBand, innerBand, 0, nullptr, interiorTest, openvdb::tools::EVAL_EVERY_TILE);
     }
 
     void meshToLevelSet(){
@@ -192,7 +196,6 @@ class OpenVDBAdapter<TRI_MESH_TYPE>::MeshTypeDataAdapter{
             pos = xform->worldToIndex(pos);
         }
     };
-}
 }
 
 #endif

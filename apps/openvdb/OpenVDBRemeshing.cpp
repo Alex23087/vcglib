@@ -31,7 +31,7 @@
 #include <vcg/complex/allocate.h>
 #include <wrap/io_trimesh/import.h>
 #include <wrap/io_trimesh/export_obj.h>
-#include <wrap/openvdb/OpenVDBAdapter.cpp>
+#include <wrap/openvdb/OpenVDBAdapter.h>
 
 using namespace vcg;
 using namespace std;
