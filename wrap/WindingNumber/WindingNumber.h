@@ -3,7 +3,7 @@
 #ifndef WINDING_NUMBER_H
 #define WINDING_NUMBER_H
 
-#include <wrap/WindingNumber/UT_SolidAngle.h>
+#include <wrap/WindingNumber/SolidAngle.h>
 #include <vcg/complex/complex.h>
 
 namespace vcg::tri{
@@ -15,13 +15,13 @@ class WindingNumber {
     typedef	typename VertexType::ScalarType ScalarType;
 
 	private:
-	HDK_Sample::UT_SolidAngle<float,float> solid_angle; // Only works with float
+	igl::FastWindingNumber::HDK_Sample::UT_SolidAngle<float,float> solid_angle; // Only works with float
 
 	public:
 	void init(MeshType &m, int order = 2)
 	{
 		// Initialize vector of vertex positions
-		std::vector<HDK_Sample::UT_Vector3T<float>> U(m.vert.size());
+		std::vector<igl::FastWindingNumber::HDK_Sample::UT_Vector3T<float>> U(m.vert.size());
 		for(int i = 0; i < m.vert.size(); i++)
 		{
 			for(int j = 0;j<3;j++)
@@ -44,7 +44,7 @@ class WindingNumber {
 	}
 
 	ScalarType computeWindingNumber(std::vector<ScalarType> coordV, double accuracy_scale = 2.0){
-		auto pt = HDK_Sample::UT_Vector3T<float>(coordV.data());
+		auto pt = igl::FastWindingNumber::HDK_Sample::UT_Vector3T<float>(coordV.data());
 		return solid_angle.computeSolidAngle(pt, accuracy_scale) / (4.0 * M_PI);
 	}
 };

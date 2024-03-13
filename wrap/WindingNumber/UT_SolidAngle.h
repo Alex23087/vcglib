@@ -34,6 +34,7 @@
 #include "SYS_Math.h"
 #include <memory>
 
+namespace igl { namespace FastWindingNumber {
 namespace HDK_Sample {
 
 template<typename T>
@@ -67,7 +68,7 @@ UT_Vector3T<T> cross(const UT_Vector3T<T> &v1, const UT_Vector3T<T> &v2)
 ///          negate the output, or swap b and c if you want it to be
 ///          positive inside and negative outside.
 template<typename T>
-T UTsignedSolidAngleTri(
+inline T UTsignedSolidAngleTri(
     const UT_Vector3T<T> &a,
     const UT_Vector3T<T> &b,
     const UT_Vector3T<T> &c,
@@ -109,7 +110,7 @@ T UTsignedSolidAngleTri(
 }
 
 template<typename T>
-T UTsignedSolidAngleQuad(
+inline T UTsignedSolidAngleQuad(
     const UT_Vector3T<T> &a,
     const UT_Vector3T<T> &b,
     const UT_Vector3T<T> &c,
@@ -224,9 +225,9 @@ class UT_SolidAngle
 {
 public:
     /// This is outlined so that we don't need to include UT_BVHImpl.h
-    UT_SolidAngle();
+    inline UT_SolidAngle();
     /// This is outlined so that we don't need to include UT_BVHImpl.h
-    ~UT_SolidAngle();
+    inline ~UT_SolidAngle();
 
     /// NOTE: This does not take ownership over triangle_points or positions,
     ///       but does keep pointers to them, so the caller must keep them in
@@ -243,7 +244,7 @@ public:
     /// Initialize the tree and data.
     /// NOTE: It is safe to call init on a UT_SolidAngle that has had init
     ///       called on it before, to re-initialize it.
-    void init(
+    inline void init(
         const int ntriangles,
         const int *const triangle_points,
         const int npoints,
@@ -251,7 +252,7 @@ public:
         const int order = 2);
 
     /// Frees myTree and myData, and clears the rest.
-    void clear();
+    inline void clear();
 
     /// Returns true if this is clear
     bool isClear() const
@@ -259,7 +260,7 @@ public:
 
     /// Returns an approximation of the signed solid angle of the mesh from the specified query_point
     /// accuracy_scale is the value of (maxP/q) beyond which the approximation of the box will be used.
-    T computeSolidAngle(const UT_Vector3T<T> &query_point, const T accuracy_scale = T(2.0)) const;
+    inline T computeSolidAngle(const UT_Vector3T<T> &query_point, const T accuracy_scale = T(2.0)) const;
 
 private:
     struct BoxData;
@@ -276,7 +277,7 @@ private:
 };
 
 template<typename T>
-T UTsignedAngleSegment(
+inline T UTsignedAngleSegment(
     const UT_Vector2T<T> &a,
     const UT_Vector2T<T> &b,
     const UT_Vector2T<T> &query)
@@ -315,9 +316,9 @@ class UT_SubtendedAngle
 {
 public:
     /// This is outlined so that we don't need to include UT_BVHImpl.h
-    UT_SubtendedAngle();
+    inline UT_SubtendedAngle();
     /// This is outlined so that we don't need to include UT_BVHImpl.h
-    ~UT_SubtendedAngle();
+    inline ~UT_SubtendedAngle();
 
     /// NOTE: This does not take ownership over segment_points or positions,
     ///       but does keep pointers to them, so the caller must keep them in
@@ -334,7 +335,7 @@ public:
     /// Initialize the tree and data.
     /// NOTE: It is safe to call init on a UT_SolidAngle that has had init
     ///       called on it before, to re-initialize it.
-    void init(
+    inline void init(
         const int nsegments,
         const int *const segment_points,
         const int npoints,
@@ -342,7 +343,7 @@ public:
         const int order = 2);
 
     /// Frees myTree and myData, and clears the rest.
-    void clear();
+    inline void clear();
 
     /// Returns true if this is clear
     bool isClear() const
@@ -350,7 +351,7 @@ public:
 
     /// Returns an approximation of the signed solid angle of the mesh from the specified query_point
     /// accuracy_scale is the value of (maxP/q) beyond which the approximation of the box will be used.
-    T computeAngle(const UT_Vector2T<T> &query_point, const T accuracy_scale = T(2.0)) const;
+    inline T computeAngle(const UT_Vector2T<T> &query_point, const T accuracy_scale = T(2.0)) const;
 
 private:
     struct BoxData;
@@ -367,4 +368,5 @@ private:
 };
 
 } // End HDK_Sample namespace
+}}
 #endif

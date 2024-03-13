@@ -24,6 +24,7 @@
  */
 
 #pragma once
+#ifdef __SSE__
 
 #ifndef __VM_SSEFunc__
 #define __VM_SSEFunc__
@@ -39,8 +40,6 @@
 #define VM_SSE_STYLE		1
 
 #include <emmintrin.h>
-typedef __m128	v4sf;
-typedef __m128i	v4si;
 
 #if defined(__SSE4_1__)
 #define VM_SSE41_STYLE		1
@@ -50,6 +49,11 @@ typedef __m128i	v4si;
 #if defined(_MSC_VER)
     #pragma warning(pop)
 #endif
+
+namespace igl { namespace FastWindingNumber {
+
+typedef __m128	v4sf;
+typedef __m128i	v4si;
 
 // Plain casting (no conversion)
 // MSVC has problems casting between __m128 and __m128i, so we implement a
@@ -395,5 +399,7 @@ vm_allbits(const v4si &a)
 
 // Float to integer conversion
 #define VM_IFLOAT	_mm_cvtepi32_ps
+}}
 
+#endif
 #endif

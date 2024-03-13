@@ -37,13 +37,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+namespace igl { namespace FastWindingNumber {
 
 // Implemented in UT_Array.C
 extern void ut_ArrayImplFree(void *p);
 
 
 template <typename T>
-UT_Array<T>::UT_Array(const UT_Array<T> &a)
+inline UT_Array<T>::UT_Array(const UT_Array<T> &a)
     : myCapacity(a.size()), mySize(a.size())
 {
     if (myCapacity)
@@ -58,7 +59,7 @@ UT_Array<T>::UT_Array(const UT_Array<T> &a)
 }
 
 template <typename T>
-UT_Array<T>::UT_Array(std::initializer_list<T> init)
+inline UT_Array<T>::UT_Array(std::initializer_list<T> init)
     : myCapacity(init.size()), mySize(init.size())
 {
     if (myCapacity)
@@ -73,7 +74,7 @@ UT_Array<T>::UT_Array(std::initializer_list<T> init)
 }
 
 template <typename T>
-UT_Array<T>::UT_Array(UT_Array<T> &&a) noexcept
+inline UT_Array<T>::UT_Array(UT_Array<T> &&a) noexcept
 {
     if (!a.isHeapBuffer())
     {
@@ -93,7 +94,7 @@ UT_Array<T>::UT_Array(UT_Array<T> &&a) noexcept
 
 
 template <typename T>
-UT_Array<T>::~UT_Array()
+inline UT_Array<T>::~UT_Array()
 {
     // NOTE: We call setCapacity to ensure that we call trivialDestructRange,
     //       then call free on myData.
@@ -116,7 +117,7 @@ UT_Array<T>::allocateCapacity(exint capacity)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::swap( UT_Array<T> &other )
 {
     std::swap( myData, other.myData );
@@ -126,7 +127,7 @@ UT_Array<T>::swap( UT_Array<T> &other )
 
 
 template <typename T>
-exint	
+inline exint	
 UT_Array<T>::insert(exint index)
 {
     if (index >= mySize)
@@ -152,7 +153,7 @@ UT_Array<T>::insert(exint index)
 
 template <typename T>
 template <typename S>
-exint
+inline exint
 UT_Array<T>::appendImpl(S &&s)
 {
     if (mySize == myCapacity)
@@ -175,7 +176,7 @@ UT_Array<T>::appendImpl(S &&s)
 
 template <typename T>
 template <typename... S>
-exint
+inline exint
 UT_Array<T>::emplace_back(S&&... s)
 {
     if (mySize == myCapacity)
@@ -186,7 +187,7 @@ UT_Array<T>::emplace_back(S&&... s)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::append(const T *pt, exint count)
 {
     bumpCapacity(mySize + count);
@@ -195,7 +196,7 @@ UT_Array<T>::append(const T *pt, exint count)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::appendMultiple(const T &t, exint count)
 {
     UT_ASSERT_P(count >= 0);
@@ -219,7 +220,7 @@ UT_Array<T>::appendMultiple(const T &t, exint count)
 }
 
 template <typename T>
-exint
+inline exint
 UT_Array<T>::concat(const UT_Array<T> &a)
 {
     bumpCapacity(mySize + a.mySize);
@@ -230,7 +231,7 @@ UT_Array<T>::concat(const UT_Array<T> &a)
 }
 
 template <typename T>
-exint
+inline exint
 UT_Array<T>::multipleInsert(exint beg_index, exint count)
 {
     exint end_index = beg_index + count;
@@ -257,7 +258,7 @@ UT_Array<T>::multipleInsert(exint beg_index, exint count)
 
 template <typename T>
 template <typename S>
-exint
+inline exint
 UT_Array<T>::insertImpl(S &&s, exint index)
 {
     if (index == mySize)
@@ -305,7 +306,7 @@ UT_Array<T>::insertImpl(S &&s, exint index)
 }
 
 template <typename T>
-exint
+inline exint
 UT_Array<T>::removeAt(exint idx)
 {
     trivialDestruct(myData[idx]);
@@ -319,7 +320,7 @@ UT_Array<T>::removeAt(exint idx)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::removeRange(exint begin_i, exint end_i)
 {
     UT_ASSERT(begin_i <= end_i);
@@ -334,7 +335,7 @@ UT_Array<T>::removeRange(exint begin_i, exint end_i)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::extractRange(exint begin_i, exint end_i, UT_Array<T>& dest)
 {
     UT_ASSERT_P(begin_i >= 0);
@@ -364,7 +365,7 @@ UT_Array<T>::extractRange(exint begin_i, exint end_i, UT_Array<T>& dest)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::move(exint srcIdx, exint destIdx, exint howMany)
 {
     // Make sure all the parameters are valid.
@@ -416,7 +417,7 @@ UT_Array<T>::move(exint srcIdx, exint destIdx, exint howMany)
 
 template <typename T>
 template <typename IsEqual>
-exint
+inline exint
 UT_Array<T>::removeIf(IsEqual is_equal)
 {
     // Move dst to the first element to remove.
@@ -443,7 +444,7 @@ UT_Array<T>::removeIf(IsEqual is_equal)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::cycle(exint howMany)
 {
     char	*tempPtr;
@@ -465,7 +466,7 @@ UT_Array<T>::cycle(exint howMany)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::constant(const T &value)
 {
     for (exint i = 0; i < mySize; i++)
@@ -475,7 +476,7 @@ UT_Array<T>::constant(const T &value)
 }
 
 template <typename T>
-void
+inline void
 UT_Array<T>::zero()
 {
     if (isPOD())
@@ -485,7 +486,7 @@ UT_Array<T>::zero()
 }
 
 template <typename T>
-void		
+inline void		
 UT_Array<T>::setCapacity(exint capacity)
 {
     // Do nothing when new capacity is the same as the current
@@ -558,7 +559,7 @@ UT_Array<T>::setCapacity(exint capacity)
 }
 
 template <typename T>
-UT_Array<T> &
+inline UT_Array<T> &
 UT_Array<T>::operator=(const UT_Array<T> &a)
 {
     if (this == &a)
@@ -578,7 +579,7 @@ UT_Array<T>::operator=(const UT_Array<T> &a)
 }
 
 template <typename T>
-UT_Array<T> &
+inline UT_Array<T> &
 UT_Array<T>::operator=(std::initializer_list<T> a)
 {
     const exint new_size = a.size();
@@ -598,7 +599,7 @@ UT_Array<T>::operator=(std::initializer_list<T> a)
 }
 
 template <typename T>
-UT_Array<T> &
+inline UT_Array<T> &
 UT_Array<T>::operator=(UT_Array<T> &&a)
 {
     if (!a.isHeapBuffer())
@@ -644,7 +645,7 @@ UT_Array<T>::operator=(UT_Array<T> &&a)
 
 
 template <typename T>
-bool
+inline bool
 UT_Array<T>::operator==(const UT_Array<T> &a) const
 {
     if (this == &a) return true;
@@ -655,10 +656,12 @@ UT_Array<T>::operator==(const UT_Array<T> &a) const
 }
 
 template <typename T>
-bool
+inline bool
 UT_Array<T>::operator!=(const UT_Array<T> &a) const
 {
     return (!operator==(a));
 }
+
+}}
 
 #endif // __UT_ARRAYIMPL_H_INCLUDED__

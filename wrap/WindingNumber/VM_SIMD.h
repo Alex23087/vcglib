@@ -34,6 +34,9 @@
 //#define FORCE_NON_SIMD
 
 #include "VM_SSEFunc.h"
+#include "VM_SIMDFunc.h"
+
+namespace igl { namespace FastWindingNumber {
 
 class v4uf;
 
@@ -249,11 +252,13 @@ public:
         return base;
     }
 
+#ifdef __SSE__
     template <int A, int B, int C, int D>
     SYS_FORCE_INLINE v4uf swizzle() const
     { 
         return VM_SHUFFLE<A,B,C,D>(vector);
     }
+#endif
 
     SYS_FORCE_INLINE v4uu isFinite() const
     {
@@ -446,4 +451,5 @@ typedef v4uu v4ui;
 #define VM_ALIGN(ptr, ASIZE, STYPE)	\
 		((((1<<ASIZE)-(intptr_t)ptr)&((1<<ASIZE)-1))/sizeof(STYPE))
 
+}}
 #endif

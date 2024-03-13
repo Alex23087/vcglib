@@ -35,6 +35,8 @@
 #include <type_traits>
 #include <string.h>
 
+namespace igl { namespace FastWindingNumber {
+
  /// This routine describes how to change the size of an array.
  /// It must increase the current_size by at least one!
  ///
@@ -91,10 +93,10 @@ public:
     /// and it really does need to copy instead of referencing,
     /// you can rewrite it as:
     /// UT_Array<int> a(otherarray);
-    explicit UT_Array(const UT_Array<T> &a);
+    inline explicit UT_Array(const UT_Array<T> &a);
     
     /// Move constructor. Steals the working data from the original.
-    UT_Array(UT_Array<T> &&a) noexcept;
+    inline UT_Array(UT_Array<T> &&a) noexcept;
     
     /// Construct based on given capacity and size
     UT_Array(exint capacity, exint size)
@@ -114,11 +116,11 @@ public:
     }
 
     /// Construct with the contents of an initializer list
-    explicit UT_Array(std::initializer_list<T> init);
+    inline explicit UT_Array(std::initializer_list<T> init);
 
-    ~UT_Array();
+    inline ~UT_Array();
 
-    void	    swap(UT_Array<T> &other);
+    inline void	    swap(UT_Array<T> &other);
 
     /// Append an element to the current elements and return its index in the
     /// array, or insert the element at a specified position; if necessary,
@@ -134,9 +136,9 @@ public:
     exint           append(void) { return insert(mySize); }
     exint           append(const T &t) { return appendImpl(t); }
     exint           append(T &&t) { return appendImpl(std::move(t)); }
-    void            append(const T *pt, exint count);
-    void	    appendMultiple(const T &t, exint count);
-    exint	    insert(exint index);
+    inline void            append(const T *pt, exint count);
+    inline void	    appendMultiple(const T &t, exint count);
+    inline exint	    insert(exint index);
     exint	    insert(const T &t, exint i)
                         { return insertImpl(t, i); }
     exint	    insert(T &&t, exint i)
@@ -149,13 +151,13 @@ public:
     /// remove most of the performance gain versus append(T(...)). Debug builds
     /// will assert that the arguments are valid.
     template <typename... S>
-    exint	    emplace_back(S&&... s);
+    inline exint	    emplace_back(S&&... s);
 
     /// Takes another T array and concatenate it onto my end
-    exint	    concat(const UT_Array<T> &a);
+    inline exint	    concat(const UT_Array<T> &a);
 
     /// Insert an element "count" times at the given index. Return the index.
-    exint	    multipleInsert(exint index, exint count);
+    inline exint	    multipleInsert(exint index, exint count);
 
     /// An alias for unique element insertion at a certain index. Also used by
     /// the other insertion methods.
@@ -180,18 +182,18 @@ public:
     }
 
     /// Remove the range [begin_i,end_i) of elements from the array.
-    void	    removeRange(exint begin_i, exint end_i);
+    inline void	    removeRange(exint begin_i, exint end_i);
 
     /// Remove the range [begin_i, end_i) of elements from this array and place
     /// them in the dest array, shrinking/growing the dest array as necessary.
-    void            extractRange(exint begin_i, exint end_i,
+    inline void            extractRange(exint begin_i, exint end_i,
                                  UT_Array<T>& dest);
 
     /// Removes all matching elements from the list, shuffling down and changing
     /// the size appropriately.
     /// Returns the number of elements left.
     template <typename IsEqual>
-    exint	    removeIf(IsEqual is_equal);
+    inline exint	    removeIf(IsEqual is_equal);
 
     /// Remove all matching elements. Also sets the capacity of the array.
     template <typename IsEqual>
@@ -205,15 +207,15 @@ public:
     /// This method will remove the elements at [srcIdx, srcIdx+howMany) and
     /// then insert them at destIdx.  This method can be used in place of
     /// the old shift() operation.
-    void	    move(exint srcIdx, exint destIdx, exint howMany);
+    inline void	    move(exint srcIdx, exint destIdx, exint howMany);
 
     /// Cyclically shifts the entire array by howMany
-    void	    cycle(exint howMany);
+    inline void	    cycle(exint howMany);
 
     /// Quickly set the array to a single value.
-    void	    constant(const T &v);
+    inline void	    constant(const T &v);
     /// Zeros the array if a POD type, else trivial constructs if a class type.
-    void	    zero();
+    inline void	    zero();
 
     /// The fastest search possible, which does pointer arithmetic to find the
     /// index of the element. WARNING: index() does no out-of-bounds checking.
@@ -226,7 +228,7 @@ public:
 
     /// Set the capacity of the array, i.e. grow it or shrink it. The
     /// function copies the data after reallocating space for the array.
-    void            setCapacity(exint newcapacity);
+    inline void            setCapacity(exint newcapacity);
     void            setCapacityIfNeeded(exint mincapacity)
     {
         if (capacity() < mincapacity)
@@ -333,21 +335,21 @@ public:
 
     /// Assign array a to this array by copying each of a's elements with
     /// memcpy for POD types, and with copy construction for class types.
-    UT_Array<T> &   operator=(const UT_Array<T> &a);
+    inline UT_Array<T> &   operator=(const UT_Array<T> &a);
 
     /// Replace the contents with those from the initializer_list ilist
-    UT_Array<T> &   operator=(std::initializer_list<T> ilist);
+    inline UT_Array<T> &   operator=(std::initializer_list<T> ilist);
 
     /// Move the contents of array a to this array. 
-    UT_Array<T> &   operator=(UT_Array<T> &&a);
+    inline UT_Array<T> &   operator=(UT_Array<T> &&a);
 
     /// Compare two array and return true if they are equal and false otherwise.
     /// Two elements are checked against each other using operator '==' or
     /// compare() respectively.
     /// NOTE: The capacities of the arrays are not checked when
     ///       determining whether they are equal.
-    bool            operator==(const UT_Array<T> &a) const;
-    bool            operator!=(const UT_Array<T> &a) const;
+    inline bool            operator==(const UT_Array<T> &a) const;
+    inline bool            operator!=(const UT_Array<T> &a) const;
      
     /// Subscript operator
     /// NOTE: This does NOT do any bounds checking unless paranoid
@@ -427,12 +429,9 @@ public:
     { T *data = myData; myData = newdata; return data; }
 
     template <typename IT, bool FORWARD>
-    class base_iterator
+    class base_iterator : 
+	public std::iterator<std::random_access_iterator_tag, T, exint> 
     {
-        using iterator_category = std::random_access_iterator_tag;
-        using value_type = T;
-        using difference_type = exint;
-
         public:
 	    typedef IT&		reference;
 	    typedef IT*		pointer;
@@ -689,11 +688,11 @@ protected:
     /// forwarding. Unlike the variadic emplace_back(), its argument may be a
     /// reference to another element in the array.
     template <typename S>
-    exint           appendImpl(S &&s);
+    inline exint           appendImpl(S &&s);
 
     /// Similar to appendImpl() but for insertion.
     template <typename S>
-    exint           insertImpl(S &&s, exint index);
+    inline exint           insertImpl(S &&s, exint index);
 
     // Construct the given type
     template <typename... S>
@@ -783,10 +782,11 @@ private:
     exint mySize;
 
     // The guts of the remove() methods.
-    exint	    removeAt(exint index);
+    inline exint	    removeAt(exint index);
 
-    T *		    allocateCapacity(exint num_items);
+    inline T *		    allocateCapacity(exint num_items);
 };
+}}
 
 #include "UT_ArrayImpl.h"
 

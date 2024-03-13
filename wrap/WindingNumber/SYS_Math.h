@@ -34,6 +34,8 @@
 #include <limits>
 #include <math.h>
 
+namespace igl { namespace FastWindingNumber {
+
 // NOTE:
 // These have been carefully written so that in the case of equality
 // we always return the first parameter.  This is so that NANs in
@@ -117,5 +119,7 @@ static inline fpreal32 SYSatan2(fpreal32 a, fpreal32 b)
 
 static inline fpreal32 SYSabs(fpreal32 a) { return ::fabsf(a); }
 static inline fpreal64 SYSabs(fpreal64 a) { return ::fabs(a); }
+
+}}
 
 #endif

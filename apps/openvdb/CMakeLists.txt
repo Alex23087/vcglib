@@ -4,21 +4,16 @@ project(openvdb-remesher)
 set(CMAKE_CXX_STANDARD 17)
 
 find_package(OpenVDB REQUIRED)
-find_package(ECM REQUIRED NO_MODULE)
 find_package(TBB REQUIRED)
 find_package(Boost REQUIRED)
 find_package(EIGEN3 REQUIRED NO_MODULE)
 
 set(VCGLIB_DIR "../.." CACHE INTERNAL "Path to vcglib")
 set(EIGEN_DIR  = "${VCGLIB_DIR}/eigenlib" CACHE INTERNAL "")
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_FIND_MODULE_DIR})
 
-# Add files for the winding number computation
-file(GLOB WNFILES ${VCGLIB_DIR}/wrap/WindingNumber/*.cpp)
 
 add_executable(${PROJECT_NAME} OpenVDBRemeshing.cpp
     ${VCGLIB_DIR}/wrap/ply/plylib.cpp
-    ${WNFILES}
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${VCGLIB_DIR})

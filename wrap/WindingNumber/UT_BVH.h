@@ -34,6 +34,7 @@
 #include "SYS_Types.h"
 #include <limits>
 #include <memory>
+namespace igl { namespace FastWindingNumber {
 
 template<typename T> class UT_Array;
 class v4uf;
@@ -379,10 +380,10 @@ public:
     SYS_FORCE_INLINE BVH() noexcept : myRoot(nullptr), myNumNodes(0) {}
 
     template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE=INT_TYPE>
-    void init(const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices=nullptr, bool reorder_indices=false, INT_TYPE max_items_per_leaf=1) noexcept;
+    inline void init(const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices=nullptr, bool reorder_indices=false, INT_TYPE max_items_per_leaf=1) noexcept;
 
     template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE=INT_TYPE>
-    void init(Box<T,NAXES> axes_minmax, const BOX_TYPE* boxes, INT_TYPE nboxes, SRC_INT_TYPE* indices=nullptr, bool reorder_indices=false, INT_TYPE max_items_per_leaf=1) noexcept;
+    inline void init(Box<T,NAXES> axes_minmax, const BOX_TYPE* boxes, INT_TYPE nboxes, SRC_INT_TYPE* indices=nullptr, bool reorder_indices=false, INT_TYPE max_items_per_leaf=1) noexcept;
 
     SYS_FORCE_INLINE
     INT_TYPE getNumNodes() const noexcept
@@ -414,7 +415,7 @@ public:
     /// }
     /// functors.post(nodei, parent_nodei, data_for_parent, num_children, local_data);
     template<typename LOCAL_DATA,typename FUNCTORS>
-    void traverse(
+    inline void traverse(
         FUNCTORS &functors,
         LOCAL_DATA *data_for_parent=nullptr) const noexcept;
 
@@ -425,7 +426,7 @@ public:
     ///       e.g. don't add values from sibling nodes together except in post functor,
     ///       else they might have nondeterministic roundoff or miss some values entirely.
     template<typename LOCAL_DATA,typename FUNCTORS>
-    void traverseParallel(
+    inline void traverseParallel(
         INT_TYPE parallel_threshold,
         FUNCTORS &functors,
         LOCAL_DATA *data_for_parent=nullptr) const noexcept;
@@ -445,26 +446,26 @@ public:
     /// }
     /// functors.post(nodei, parent_nodei, data_for_parent, num_children, local_data);
     template<typename LOCAL_DATA,typename FUNCTORS>
-    void traverseVector(
+    inline void traverseVector(
         FUNCTORS &functors,
         LOCAL_DATA *data_for_parent=nullptr) const noexcept;
 
     /// Prints a text representation of the tree to stdout.
-    void debugDump() const;
+    inline void debugDump() const;
 
     template<typename SRC_INT_TYPE>
-    static void createTrivialIndices(SRC_INT_TYPE* indices, const INT_TYPE n) noexcept;
+    static inline void createTrivialIndices(SRC_INT_TYPE* indices, const INT_TYPE n) noexcept;
 
 private:
     template<typename LOCAL_DATA,typename FUNCTORS>
-    void traverseHelper(
+    inline void traverseHelper(
         INT_TYPE nodei,
         INT_TYPE parent_nodei,
         FUNCTORS &functors,
         LOCAL_DATA *data_for_parent=nullptr) const noexcept;
 
     template<typename LOCAL_DATA,typename FUNCTORS>
-    void traverseParallelHelper(
+    inline void traverseParallelHelper(
         INT_TYPE nodei,
         INT_TYPE parent_nodei,
         INT_TYPE parallel_threshold,
@@ -473,35 +474,35 @@ private:
         LOCAL_DATA *data_for_parent=nullptr) const noexcept;
 
     template<typename LOCAL_DATA,typename FUNCTORS>
-    void traverseVectorHelper(
+    inline void traverseVectorHelper(
         INT_TYPE nodei,
         INT_TYPE parent_nodei,
         FUNCTORS &functors,
         LOCAL_DATA *data_for_parent=nullptr) const noexcept;
 
     template<typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void computeFullBoundingBox(Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices) noexcept;
+    static inline void computeFullBoundingBox(Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices) noexcept;
 
     template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void initNode(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const INT_TYPE nboxes) noexcept;
+    static inline void initNode(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const INT_TYPE nboxes) noexcept;
 
     template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void initNodeReorder(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const INT_TYPE nboxes, const INT_TYPE indices_offset, const INT_TYPE max_items_per_leaf) noexcept;
+    static inline void initNodeReorder(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const INT_TYPE nboxes, const INT_TYPE indices_offset, const INT_TYPE max_items_per_leaf) noexcept;
 
     template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void multiSplit(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE* sub_indices[N+1], Box<T,NAXES> sub_boxes[N]) noexcept;
+    static inline void multiSplit(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE* sub_indices[N+1], Box<T,NAXES> sub_boxes[N]) noexcept;
 
     template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void split(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE*& split_indices, Box<T,NAXES>* split_boxes) noexcept;
+    static inline void split(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE*& split_indices, Box<T,NAXES>* split_boxes) noexcept;
 
     template<INT_TYPE PARALLEL_THRESHOLD, typename SRC_INT_TYPE>
-    static void adjustParallelChildNodes(INT_TYPE nparallel, UT_Array<Node>& nodes, Node& node, UT_Array<Node>* parallel_nodes, SRC_INT_TYPE* sub_indices) noexcept;
+    static inline void adjustParallelChildNodes(INT_TYPE nparallel, UT_Array<Node>& nodes, Node& node, UT_Array<Node>* parallel_nodes, SRC_INT_TYPE* sub_indices) noexcept;
 
     template<typename T,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void nthElement(const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const SRC_INT_TYPE* indices_end, const uint axis, SRC_INT_TYPE*const nth) noexcept;
+    static inline void nthElement(const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const SRC_INT_TYPE* indices_end, const uint axis, SRC_INT_TYPE*const nth) noexcept;
 
     template<typename T,typename BOX_TYPE,typename SRC_INT_TYPE>
-    static void partitionByCentre(const BOX_TYPE* boxes, SRC_INT_TYPE*const indices, const SRC_INT_TYPE*const indices_end, const uint axis, const T pivotx2, SRC_INT_TYPE*& ppivot_start, SRC_INT_TYPE*& ppivot_end) noexcept;
+    static inline void partitionByCentre(const BOX_TYPE* boxes, SRC_INT_TYPE*const indices, const SRC_INT_TYPE*const indices_end, const uint axis, const T pivotx2, SRC_INT_TYPE*& ppivot_start, SRC_INT_TYPE*& ppivot_end) noexcept;
 
     /// An overestimate of the number of nodes needed.
     /// At worst, we could have only 2 children in every leaf, and
@@ -552,4 +553,5 @@ template<uint N>
 using UT_BVH = UT::BVH<N>;
 
 } // End HDK_Sample namespace
+}}
 #endif

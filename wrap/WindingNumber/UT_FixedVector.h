@@ -31,6 +31,8 @@
 #include "SYS_Math.h"
 #include "SYS_Types.h"
 
+namespace igl { namespace FastWindingNumber {
+
 template<typename T,exint SIZE,bool INSTANTIATED=false>
 class UT_FixedVector
 {
@@ -399,5 +401,6 @@ struct UT_FixedVectorTraits<UT_FixedVector<T,SIZE,INSTANTIATED> >
     static const exint TupleSize = SIZE;
     static const bool isVectorType = true;
 };
+}}
 
 #endif

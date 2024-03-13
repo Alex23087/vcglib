@@ -37,8 +37,13 @@
 #include "UT_ParallelUtil.h"
 #include "UT_SmallArray.h"
 #include "SYS_Types.h"
+
+#include <igl/parallel_for.h>
+
+#include <iostream>
 #include <algorithm>
 
+namespace igl { namespace FastWindingNumber {
 namespace HDK_Sample {
 
 namespace UT {
@@ -102,16 +107,16 @@ struct ut_BoxCentre<UT_FixedVector<T,NAXES,INSTANTIATED>> {
 };
 
 template<typename BOX_TYPE,typename SRC_INT_TYPE,typename INT_TYPE>
-INT_TYPE utExcludeNaNInfBoxIndices(const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE& nboxes) noexcept 
+inline INT_TYPE utExcludeNaNInfBoxIndices(const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE& nboxes) noexcept 
 {
     constexpr INT_TYPE PARALLEL_THRESHOLD = 65536;
     INT_TYPE ntasks = 1;
-    if (nboxes >= PARALLEL_THRESHOLD) 
-    {
-        INT_TYPE nprocessors = UT_Thread::getNumProcessors();
-        ntasks = (nprocessors > 1) ? SYSmin(4*nprocessors, nboxes/(PARALLEL_THRESHOLD/2)) : 1;
-    }
-    if (ntasks == 1) 
+    //if (nboxes >= PARALLEL_THRESHOLD) 
+    //{
+    //    INT_TYPE nprocessors = UT_Thread::getNumProcessors();
+    //    ntasks = (nprocessors > 1) ? SYSmin(4*nprocessors, nboxes/(PARALLEL_THRESHOLD/2)) : 1;
+    //}
+    //if (ntasks == 1) 
     {
         // Serial: easy case; just loop through.
 
@@ -120,7 +125,7 @@ INT_TYPE utExcludeNaNInfBoxIndices(const BOX_TYPE* boxes, SRC_INT_TYPE* indices,
         // Loop through forward once
         SRC_INT_TYPE* psrc_index = indices;
         for (; psrc_index != indices_end; ++psrc_index) 
-	{
+        {
             const bool exclude = utBoxExclude(boxes[*psrc_index]);
             if (exclude)
                 break;
@@ -143,85 +148,11 @@ INT_TYPE utExcludeNaNInfBoxIndices(const BOX_TYPE* boxes, SRC_INT_TYPE* indices,
         return indices_end - nan_start;
     }
 
-    // Parallel: hard case.
-    // 1) Collapse each of ntasks chunks and count number of items to exclude
-    // 2) Accumulate number of items to exclude.
-    // 3) If none, return.
-    // 4) Copy non-NaN chunks
-
-    UT_SmallArray<INT_TYPE> nexcluded;
-    nexcluded.setSizeNoInit(ntasks);
-    UTparallelFor(UT_BlockedRange<INT_TYPE>(0,ntasks), [boxes,indices,ntasks,nboxes,&nexcluded](const UT_BlockedRange<INT_TYPE>& r) 
-    {
-        for (INT_TYPE taski = r.begin(), task_end = r.end(); taski < task_end; ++taski)
-        {
-            SRC_INT_TYPE* indices_start = indices + (taski*exint(nboxes))/ntasks;
-            const SRC_INT_TYPE* indices_end = indices + ((taski+1)*exint(nboxes))/ntasks;
-            SRC_INT_TYPE* psrc_index = indices_start;
-            for (; psrc_index != indices_end; ++psrc_index)
-            {
-                const bool exclude = utBoxExclude(boxes[*psrc_index]);
-                if (exclude)
-                    break;
-            }
-            if (psrc_index == indices_end) 
-	    {
-                nexcluded[taski] = 0;
-                continue;
-            }
-
-            // First NaN or infinite box
-            SRC_INT_TYPE* nan_start = psrc_index;
-            for (++psrc_index; psrc_index != indices_end; ++psrc_index) 
-	    {
-                const bool exclude = utBoxExclude(boxes[*psrc_index]);
-                if (!exclude) 
-		{
-                    *nan_start = *psrc_index;
-                    ++nan_start;
-                }
-            }
-            nexcluded[taski] = indices_end - nan_start;
-        }
-    }, 0, 1);
-
-    // Accumulate
-    INT_TYPE total_excluded = nexcluded[0];
-    for (INT_TYPE taski = 1; taski < ntasks; ++taski) 
-    {
-        total_excluded += nexcluded[taski];
-    }
-
-    if (total_excluded == 0)
-        return 0;
-
-    // TODO: Parallelize this part, if it's a bottleneck and we care about cases with NaNs or infinities.
-
-    INT_TYPE taski = 0;
-    while (nexcluded[taski] == 0) 
-    {
-        ++taski;
-    }
-
-    SRC_INT_TYPE* dest_indices = indices + ((taski+1)*exint(nboxes))/ntasks - nexcluded[taski];
-
-    SRC_INT_TYPE* dest_end = indices + nboxes - total_excluded;
-    for (++taski; taski < ntasks && dest_indices < dest_end; ++taski)
-    {
-        const SRC_INT_TYPE* psrc_index = indices + (taski*exint(nboxes))/ntasks;
-        const SRC_INT_TYPE* psrc_end = indices + ((taski+1)*exint(nboxes))/ntasks - nexcluded[taski];
-        INT_TYPE count = psrc_end - psrc_index;
-	// Note should be memmove as it is overlapping.
-	memmove(dest_indices, psrc_index, sizeof(SRC_INT_TYPE)*count);
-        dest_indices += count;
-    }
-    nboxes -= total_excluded;
-    return total_excluded;
 }
 
 template<uint N>
 template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::init(const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices, bool reorder_indices, INT_TYPE max_items_per_leaf) noexcept {
+inline void BVH<N>::init(const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices, bool reorder_indices, INT_TYPE max_items_per_leaf) noexcept {
     Box<T,NAXES> axes_minmax;
     computeFullBoundingBox(axes_minmax, boxes, nboxes, indices);
 
@@ -230,7 +161,7 @@ void BVH<N>::init(const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* in
 
 template<uint N>
 template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::init(Box<T,NAXES> axes_minmax, const BOX_TYPE* boxes, INT_TYPE nboxes, SRC_INT_TYPE* indices, bool reorder_indices, INT_TYPE max_items_per_leaf) noexcept {
+inline void BVH<N>::init(Box<T,NAXES> axes_minmax, const BOX_TYPE* boxes, INT_TYPE nboxes, SRC_INT_TYPE* indices, bool reorder_indices, INT_TYPE max_items_per_leaf) noexcept {
     // Clear the tree in advance to save memory.
     myRoot.reset();
 
@@ -278,7 +209,7 @@ void BVH<N>::init(Box<T,NAXES> axes_minmax, const BOX_TYPE* boxes, INT_TYPE nbox
 
 template<uint N>
 template<typename LOCAL_DATA,typename FUNCTORS>
-void BVH<N>::traverse(
+inline void BVH<N>::traverse(
     FUNCTORS &functors,
     LOCAL_DATA* data_for_parent) const noexcept
 {
@@ -290,7 +221,7 @@ void BVH<N>::traverse(
 }
 template<uint N>
 template<typename LOCAL_DATA,typename FUNCTORS>
-void BVH<N>::traverseHelper(
+inline void BVH<N>::traverseHelper(
     INT_TYPE nodei,
     INT_TYPE parent_nodei,
     FUNCTORS &functors,
@@ -321,7 +252,7 @@ void BVH<N>::traverseHelper(
 
 template<uint N>
 template<typename LOCAL_DATA,typename FUNCTORS>
-void BVH<N>::traverseParallel(
+inline void BVH<N>::traverseParallel(
     INT_TYPE parallel_threshold,
     FUNCTORS& functors,
     LOCAL_DATA* data_for_parent) const noexcept
@@ -334,7 +265,7 @@ void BVH<N>::traverseParallel(
 }
 template<uint N>
 template<typename LOCAL_DATA,typename FUNCTORS>
-void BVH<N>::traverseParallelHelper(
+inline void BVH<N>::traverseParallelHelper(
     INT_TYPE nodei,
     INT_TYPE parent_nodei,
     INT_TYPE parallel_threshold,
@@ -398,31 +329,32 @@ void BVH<N>::traverseParallelHelper(
             }
         }
         // Now do the parallel ones
-        UTparallelFor(UT_BlockedRange<INT_TYPE>(0,nparallel), [this,nodei,&node,&nnodes,&next_nodes,&parallel_threshold,&functors,&local_data](const UT_BlockedRange<INT_TYPE>& r) {
-            for (INT_TYPE taski = r.begin(); taski < r.end(); ++taski) {
-                INT_TYPE parallel_count = 0;
-                // NOTE: The check for s < N is just so that the compiler can
-                //       (hopefully) figure out that it can fully unroll the loop.
-                INT_TYPE s;
-                for (s = 0; s < N; ++s) {
-                    if (nnodes[s] < parallel_threshold) {
-                        continue;
-                    }
-                    if (parallel_count == taski) {
-                        break;
-                    }
-                    ++parallel_count;
+        igl::parallel_for(
+          nparallel,
+          [this,nodei,&node,&nnodes,&next_nodes,&parallel_threshold,&functors,&local_data](int taski)
+          {
+            INT_TYPE parallel_count = 0;
+            // NOTE: The check for s < N is just so that the compiler can
+            //       (hopefully) figure out that it can fully unroll the loop.
+            INT_TYPE s;
+            for (s = 0; s < N; ++s) {
+                if (nnodes[s] < parallel_threshold) {
+                    continue;
                 }
-                const INT_TYPE node_int = node.child[s];
-                if (Node::isInternal(node_int)) {
-                    UT_ASSERT_MSG_P(node_int != Node::EMPTY, "Empty entries should have been excluded above.");
-                    traverseParallelHelper(Node::getInternalNum(node_int), nodei, parallel_threshold, next_nodes[s], functors, &local_data[s]);
+                if (parallel_count == taski) {
+                    break;
                 }
-                else {
-                    functors.item(node_int, nodei, local_data[s]);
-                }
+                ++parallel_count;
             }
-        }, 0, 1);
+            const INT_TYPE node_int = node.child[s];
+            if (Node::isInternal(node_int)) {
+                UT_ASSERT_MSG_P(node_int != Node::EMPTY, "Empty entries should have been excluded above.");
+                traverseParallelHelper(Node::getInternalNum(node_int), nodei, parallel_threshold, next_nodes[s], functors, &local_data[s]);
+            }
+            else {
+                functors.item(node_int, nodei, local_data[s]);
+            }
+          });
     }
     else {
         // All in serial
@@ -445,7 +377,7 @@ void BVH<N>::traverseParallelHelper(
 
 template<uint N>
 template<typename LOCAL_DATA,typename FUNCTORS>
-void BVH<N>::traverseVector(
+inline void BVH<N>::traverseVector(
     FUNCTORS &functors,
     LOCAL_DATA* data_for_parent) const noexcept
 {
@@ -457,7 +389,7 @@ void BVH<N>::traverseVector(
 }
 template<uint N>
 template<typename LOCAL_DATA,typename FUNCTORS>
-void BVH<N>::traverseVectorHelper(
+inline void BVH<N>::traverseVectorHelper(
     INT_TYPE nodei,
     INT_TYPE parent_nodei,
     FUNCTORS &functors,
@@ -489,36 +421,16 @@ void BVH<N>::traverseVectorHelper(
     functors.post(nodei, parent_nodei, data_for_parent, s, local_data, descend);
 }
 
+
 template<uint N>
 template<typename SRC_INT_TYPE>
-void BVH<N>::createTrivialIndices(SRC_INT_TYPE* indices, const INT_TYPE n) noexcept {
-    constexpr INT_TYPE PARALLEL_THRESHOLD = 65536;
-    INT_TYPE ntasks = 1;
-    if (n >= PARALLEL_THRESHOLD) {
-        INT_TYPE nprocessors = UT_Thread::getNumProcessors();
-        ntasks = (nprocessors > 1) ? SYSmin(4*nprocessors, n/(PARALLEL_THRESHOLD/2)) : 1;
-    }
-    if (ntasks == 1) {
-        for (INT_TYPE i = 0; i < n; ++i) {
-            indices[i] = i;
-        }
-    }
-    else {
-        UTparallelFor(UT_BlockedRange<INT_TYPE>(0,ntasks), [indices,ntasks,n](const UT_BlockedRange<INT_TYPE>& r) {
-            for (INT_TYPE taski = r.begin(), taskend = r.end(); taski != taskend; ++taski) {
-                INT_TYPE start = (taski * exint(n))/ntasks;
-                INT_TYPE end = ((taski+1) * exint(n))/ntasks;
-                for (INT_TYPE i = start; i != end; ++i) {
-                    indices[i] = i;
-                }
-            }
-        }, 0, 1);
-    }
+inline void BVH<N>::createTrivialIndices(SRC_INT_TYPE* indices, const INT_TYPE n) noexcept {
+    igl::parallel_for(n, [indices,n](INT_TYPE i) { indices[i] = i; }, 65536);
 }
 
 template<uint N>
 template<typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::computeFullBoundingBox(Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices) noexcept {
+inline void BVH<N>::computeFullBoundingBox(Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, const INT_TYPE nboxes, SRC_INT_TYPE* indices) noexcept {
     if (!nboxes) {
         axes_minmax.initBounds();
         return;
@@ -545,35 +457,31 @@ void BVH<N>::computeFullBoundingBox(Box<T,NAXES>& axes_minmax, const BOX_TYPE* b
         axes_minmax = box;
     }
     else {
-        // Combine boxes in parallel, into just a few boxes
         UT_SmallArray<Box<T,NAXES>> parallel_boxes;
-        parallel_boxes.setSize(ntasks);
-        UTparallelFor(UT_BlockedRange<INT_TYPE>(0,ntasks), [&parallel_boxes,ntasks,boxes,nboxes,indices](const UT_BlockedRange<INT_TYPE>& r) {
-            for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
-                const INT_TYPE startbox = (taski*uint64(nboxes))/ntasks;
-                const INT_TYPE endbox = ((taski+1)*uint64(nboxes))/ntasks;
-                Box<T,NAXES> box;
-                if (indices) {
-                    box.initBounds(boxes[indices[startbox]]);
-                    for (INT_TYPE i = startbox+1; i < endbox; ++i) {
-                        box.combine(boxes[indices[i]]);
-                    }
-                }
-                else {
-                    box.initBounds(boxes[startbox]);
-                    for (INT_TYPE i = startbox+1; i < endbox; ++i) {
-                        box.combine(boxes[i]);
-                    }
-                }
-                parallel_boxes[taski] = box;
+        Box<T,NAXES> box;
+        igl::parallel_for(
+          nboxes,
+          [&parallel_boxes](int n){parallel_boxes.setSize(n);},
+          [&parallel_boxes,indices,&boxes](int i, int t)
+          {
+            if(indices)
+            {
+              parallel_boxes[t].combine(boxes[indices[i]]);
+            }else
+            {
+              parallel_boxes[t].combine(boxes[i]);
             }
-        }, 0, 1);
-
-        // Combine parallel_boxes
-        Box<T,NAXES> box = parallel_boxes[0];
-        for (INT_TYPE i = 1; i < ntasks; ++i) {
-            box.combine(parallel_boxes[i]);
-        }
+          },
+          [&parallel_boxes,&box](int t)
+          {
+            if(t == 0)
+            {
+              box = parallel_boxes[0];
+            }else
+            {
+              box.combine(parallel_boxes[t]);
+            }
+          });
 
         axes_minmax = box;
     }
@@ -581,7 +489,7 @@ void BVH<N>::computeFullBoundingBox(Box<T,NAXES>& axes_minmax, const BOX_TYPE* b
 
 template<uint N>
 template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::initNode(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes) noexcept {
+inline void BVH<N>::initNode(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, const INT_TYPE nboxes) noexcept {
     if (nboxes <= N) {
         // Fits in one node
         for (INT_TYPE i = 0; i < nboxes; ++i) {
@@ -625,44 +533,41 @@ void BVH<N>::initNode(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axe
 
     // Recurse
     if (nparallel >= 2) {
-        // Do the parallel ones first, so that they can be inserted in the right place.
-        // Although the choice may seem somewhat arbitrary, we need the results to be
-        // identical whether we choose to parallelize or not, and in case we change the
-        // threshold later.
         UT_SmallArray<UT_Array<Node>> parallel_nodes;
-        parallel_nodes.setSize(nparallel);
         UT_SmallArray<Node> parallel_parent_nodes;
+        parallel_nodes.setSize(nparallel);
         parallel_parent_nodes.setSize(nparallel);
-        UTparallelFor(UT_BlockedRange<INT_TYPE>(0,nparallel), [&parallel_nodes,&parallel_parent_nodes,&sub_indices,boxes,&sub_boxes](const UT_BlockedRange<INT_TYPE>& r) {
-            for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
-                // First, find which child this is
-                INT_TYPE counted_parallel = 0;
-                INT_TYPE sub_nboxes;
-                INT_TYPE childi;
-                for (childi = 0; childi < N; ++childi) {
-                    sub_nboxes = sub_indices[childi+1]-sub_indices[childi];
-                    if (sub_nboxes >= PARALLEL_THRESHOLD) {
-                        if (counted_parallel == taski) {
-                            break;
-                        }
-                        ++counted_parallel;
+        igl::parallel_for(
+          nparallel,
+          [&parallel_nodes,&parallel_parent_nodes,&sub_indices,boxes,&sub_boxes](int taski)
+          {
+            // First, find which child this is
+            INT_TYPE counted_parallel = 0;
+            INT_TYPE sub_nboxes;
+            INT_TYPE childi;
+            for (childi = 0; childi < N; ++childi) {
+                sub_nboxes = sub_indices[childi+1]-sub_indices[childi];
+                if (sub_nboxes >= PARALLEL_THRESHOLD) {
+                    if (counted_parallel == taski) {
+                        break;
                     }
+                    ++counted_parallel;
                 }
-                UT_ASSERT_P(counted_parallel == taski);
-
-                UT_Array<Node>& local_nodes = parallel_nodes[taski];
-                // Preallocate an overestimate of the number of nodes needed.
-                // At worst, we could have only 2 children in every leaf, and
-                // then above that, we have a geometric series with r=1/N and a=(sub_nboxes/2)/N
-                // The true worst case might be a little worst than this, but
-                // it's probably fairly unlikely.
-                local_nodes.setCapacity(nodeEstimate(sub_nboxes));
-                Node& parent_node = parallel_parent_nodes[taski];
-
-                // We'll have to fix the internal node numbers in parent_node and local_nodes later
-                initNode<H>(local_nodes, parent_node, sub_boxes[childi], boxes, sub_indices[childi], sub_nboxes);
             }
-        }, 0, 1);
+            UT_ASSERT_P(counted_parallel == taski);
+
+            UT_Array<Node>& local_nodes = parallel_nodes[taski];
+            // Preallocate an overestimate of the number of nodes needed.
+            // At worst, we could have only 2 children in every leaf, and
+            // then above that, we have a geometric series with r=1/N and a=(sub_nboxes/2)/N
+            // The true worst case might be a little worst than this, but
+            // it's probably fairly unlikely.
+            local_nodes.setCapacity(nodeEstimate(sub_nboxes));
+            Node& parent_node = parallel_parent_nodes[taski];
+
+            // We'll have to fix the internal node numbers in parent_node and local_nodes later
+            initNode<H>(local_nodes, parent_node, sub_boxes[childi], boxes, sub_indices[childi], sub_nboxes);
+          });
 
         INT_TYPE counted_parallel = 0;
         for (INT_TYPE i = 0; i < N; ++i) {
@@ -717,7 +622,7 @@ void BVH<N>::initNode(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axe
 
 template<uint N>
 template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::initNodeReorder(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, const INT_TYPE indices_offset, const INT_TYPE max_items_per_leaf) noexcept {
+inline void BVH<N>::initNodeReorder(UT_Array<Node>& nodes, Node &node, const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, const INT_TYPE indices_offset, const INT_TYPE max_items_per_leaf) noexcept {
     if (nboxes <= N) {
         // Fits in one node
         for (INT_TYPE i = 0; i < nboxes; ++i) {
@@ -817,84 +722,86 @@ void BVH<N>::initNodeReorder(UT_Array<Node>& nodes, Node &node, const Box<T,NAXE
     //       to determine the number of nodes in the subtree.
 
     // Recurse
-    if (nparallel >= 2) {
-        // Do the parallel ones first, so that they can be inserted in the right place.
-        // Although the choice may seem somewhat arbitrary, we need the results to be
-        // identical whether we choose to parallelize or not, and in case we change the
-        // threshold later.
-        UT_SmallArray<UT_Array<Node>,4*sizeof(UT_Array<Node>)> parallel_nodes;
-        parallel_nodes.setSize(nparallel);
-        UT_SmallArray<Node,4*sizeof(Node)> parallel_parent_nodes;
-        parallel_parent_nodes.setSize(nparallel);
-        UTparallelFor(UT_BlockedRange<INT_TYPE>(0,nparallel), [&parallel_nodes,&parallel_parent_nodes,&sub_indices,boxes,&sub_boxes,indices_offset,max_items_per_leaf](const UT_BlockedRange<INT_TYPE>& r) {
-            for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
-                // First, find which child this is
-                INT_TYPE counted_parallel = 0;
-                INT_TYPE sub_nboxes;
-                INT_TYPE childi;
-                for (childi = 0; childi < N; ++childi) {
-                    sub_nboxes = sub_indices[childi+1]-sub_indices[childi];
-                    if (sub_nboxes >= PARALLEL_THRESHOLD) {
-                        if (counted_parallel == taski) {
-                            break;
-                        }
-                        ++counted_parallel;
-                    }
-                }
-                UT_ASSERT_P(counted_parallel == taski);
+    if (nparallel >= 2 && false) {
+      assert(false && "Not implemented; should never get here");
+      exit(1);
+      //  // Do the parallel ones first, so that they can be inserted in the right place.
+      //  // Although the choice may seem somewhat arbitrary, we need the results to be
+      //  // identical whether we choose to parallelize or not, and in case we change the
+      //  // threshold later.
+      //  UT_SmallArray<UT_Array<Node>,4*sizeof(UT_Array<Node>)> parallel_nodes;
+      //  parallel_nodes.setSize(nparallel);
+      //  UT_SmallArray<Node,4*sizeof(Node)> parallel_parent_nodes;
+      //  parallel_parent_nodes.setSize(nparallel);
+      //  UTparallelFor(UT_BlockedRange<INT_TYPE>(0,nparallel), [&parallel_nodes,&parallel_parent_nodes,&sub_indices,boxes,&sub_boxes,indices_offset,max_items_per_leaf](const UT_BlockedRange<INT_TYPE>& r) {
+      //      for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
+      //          // First, find which child this is
+      //          INT_TYPE counted_parallel = 0;
+      //          INT_TYPE sub_nboxes;
+      //          INT_TYPE childi;
+      //          for (childi = 0; childi < N; ++childi) {
+      //              sub_nboxes = sub_indices[childi+1]-sub_indices[childi];
+      //              if (sub_nboxes >= PARALLEL_THRESHOLD) {
+      //                  if (counted_parallel == taski) {
+      //                      break;
+      //                  }
+      //                  ++counted_parallel;
+      //              }
+      //          }
+      //          UT_ASSERT_P(counted_parallel == taski);
 
-                UT_Array<Node>& local_nodes = parallel_nodes[taski];
-                // Preallocate an overestimate of the number of nodes needed.
-                // At worst, we could have only 2 children in every leaf, and
-                // then above that, we have a geometric series with r=1/N and a=(sub_nboxes/2)/N
-                // The true worst case might be a little worst than this, but
-                // it's probably fairly unlikely.
-                local_nodes.setCapacity(nodeEstimate(sub_nboxes));
-                Node& parent_node = parallel_parent_nodes[taski];
+      //          UT_Array<Node>& local_nodes = parallel_nodes[taski];
+      //          // Preallocate an overestimate of the number of nodes needed.
+      //          // At worst, we could have only 2 children in every leaf, and
+      //          // then above that, we have a geometric series with r=1/N and a=(sub_nboxes/2)/N
+      //          // The true worst case might be a little worst than this, but
+      //          // it's probably fairly unlikely.
+      //          local_nodes.setCapacity(nodeEstimate(sub_nboxes));
+      //          Node& parent_node = parallel_parent_nodes[taski];
 
-                // We'll have to fix the internal node numbers in parent_node and local_nodes later
-                initNodeReorder<H>(local_nodes, parent_node, sub_boxes[childi], boxes, sub_indices[childi], sub_nboxes,
-                    indices_offset+(sub_indices[childi]-sub_indices[0]), max_items_per_leaf);
-            }
-        }, 0, 1);
+      //          // We'll have to fix the internal node numbers in parent_node and local_nodes later
+      //          initNodeReorder<H>(local_nodes, parent_node, sub_boxes[childi], boxes, sub_indices[childi], sub_nboxes,
+      //              indices_offset+(sub_indices[childi]-sub_indices[0]), max_items_per_leaf);
+      //      }
+      //  }, 0, 1);
 
-        INT_TYPE counted_parallel = 0;
-        for (INT_TYPE i = 0; i < N; ++i) {
-            INT_TYPE sub_nboxes = sub_indices[i+1]-sub_indices[i];
-            if (sub_nboxes > max_items_per_leaf) {
-                INT_TYPE local_nodes_start = nodes.size();
-                node.child[i] = Node::markInternal(local_nodes_start);
-                if (sub_nboxes >= PARALLEL_THRESHOLD) {
-                    // First, adjust the root child node
-                    Node child_node = parallel_parent_nodes[counted_parallel];
-                    ++local_nodes_start;
-                    for (INT_TYPE childi = 0; childi < N; ++childi) {
-                        INT_TYPE child_child = child_node.child[childi];
-                        if (Node::isInternal(child_child) && child_child != Node::EMPTY) {
-                            child_child += local_nodes_start;
-                            child_node.child[childi] = child_child;
-                        }
-                    }
+      //  INT_TYPE counted_parallel = 0;
+      //  for (INT_TYPE i = 0; i < N; ++i) {
+      //      INT_TYPE sub_nboxes = sub_indices[i+1]-sub_indices[i];
+      //      if (sub_nboxes > max_items_per_leaf) {
+      //          INT_TYPE local_nodes_start = nodes.size();
+      //          node.child[i] = Node::markInternal(local_nodes_start);
+      //          if (sub_nboxes >= PARALLEL_THRESHOLD) {
+      //              // First, adjust the root child node
+      //              Node child_node = parallel_parent_nodes[counted_parallel];
+      //              ++local_nodes_start;
+      //              for (INT_TYPE childi = 0; childi < N; ++childi) {
+      //                  INT_TYPE child_child = child_node.child[childi];
+      //                  if (Node::isInternal(child_child) && child_child != Node::EMPTY) {
+      //                      child_child += local_nodes_start;
+      //                      child_node.child[childi] = child_child;
+      //                  }
+      //              }
 
-                    // Make space in the array for the sub-child nodes
-                    const UT_Array<Node>& local_nodes = parallel_nodes[counted_parallel];
-                    ++counted_parallel;
-                    INT_TYPE n = local_nodes.size();
-                    nodes.bumpCapacity(local_nodes_start + n);
-                    nodes.setSizeNoInit(local_nodes_start + n);
-                    nodes[local_nodes_start-1] = child_node;
-                }
-                else {
-                    nodes.bumpCapacity(local_nodes_start + 1);
-                    nodes.setSizeNoInit(local_nodes_start + 1);
-                    initNodeReorder<H>(nodes, nodes[local_nodes_start], sub_boxes[i], boxes, sub_indices[i], sub_nboxes,
-                        indices_offset+(sub_indices[i]-sub_indices[0]), max_items_per_leaf);
-                }
-            }
-        }
+      //              // Make space in the array for the sub-child nodes
+      //              const UT_Array<Node>& local_nodes = parallel_nodes[counted_parallel];
+      //              ++counted_parallel;
+      //              INT_TYPE n = local_nodes.size();
+      //              nodes.bumpCapacity(local_nodes_start + n);
+      //              nodes.setSizeNoInit(local_nodes_start + n);
+      //              nodes[local_nodes_start-1] = child_node;
+      //          }
+      //          else {
+      //              nodes.bumpCapacity(local_nodes_start + 1);
+      //              nodes.setSizeNoInit(local_nodes_start + 1);
+      //              initNodeReorder<H>(nodes, nodes[local_nodes_start], sub_boxes[i], boxes, sub_indices[i], sub_nboxes,
+      //                  indices_offset+(sub_indices[i]-sub_indices[0]), max_items_per_leaf);
+      //          }
+      //      }
+      //  }
 
-        // Now, adjust and copy all sub-child nodes that were made in parallel
-        adjustParallelChildNodes<PARALLEL_THRESHOLD>(nparallel, nodes, node, parallel_nodes.array(), sub_indices);
+      //  // Now, adjust and copy all sub-child nodes that were made in parallel
+      //  adjustParallelChildNodes<PARALLEL_THRESHOLD>(nparallel, nodes, node, parallel_nodes.array(), sub_indices);
     }
     else {
         for (INT_TYPE i = 0; i < N; ++i) {
@@ -913,7 +820,7 @@ void BVH<N>::initNodeReorder(UT_Array<Node>& nodes, Node &node, const Box<T,NAXE
 
 template<uint N>
 template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::multiSplit(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE* sub_indices[N+1], Box<T,NAXES> sub_boxes[N]) noexcept {
+inline void BVH<N>::multiSplit(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE* sub_indices[N+1], Box<T,NAXES> sub_boxes[N]) noexcept {
     sub_indices[0] = indices;
     sub_indices[2] = indices+nboxes;
     split<H>(axes_minmax, boxes, indices, nboxes, sub_indices[1], &sub_boxes[0]);
@@ -1014,7 +921,7 @@ void BVH<N>::multiSplit(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, 
 
 template<uint N>
 template<BVH_Heuristic H,typename T,uint NAXES,typename BOX_TYPE,typename SRC_INT_TYPE>
-void BVH<N>::split(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE*& split_indices, Box<T,NAXES>* split_boxes) noexcept {
+inline void BVH<N>::split(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_INT_TYPE* indices, INT_TYPE nboxes, SRC_INT_TYPE*& split_indices, Box<T,NAXES>* split_boxes) noexcept {
     if (nboxes == 2) {
         split_boxes[0].initBounds(boxes[indices[0]]);
         split_boxes[1].initBounds(boxes[indices[1]]);
@@ -1282,55 +1189,41 @@ void BVH<N>::split(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_I
         }
     }
     else {
-        // Combine boxes in parallel, into just a few boxes
         UT_SmallArray<Box<T,NAXES>> parallel_boxes;
-        parallel_boxes.setSize(NSPANS*ntasks);
         UT_SmallArray<INT_TYPE> parallel_counts;
-        parallel_counts.setSize(NSPANS*ntasks);
-        UTparallelFor(UT_BlockedRange<INT_TYPE>(0,ntasks), [&parallel_boxes,&parallel_counts,ntasks,boxes,nboxes,indices,axis,axis_min_x2,axis_index_scale](const UT_BlockedRange<INT_TYPE>& r) {
-            for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
-                Box<T,NAXES> span_boxes[NSPANS];
-                for (INT_TYPE i = 0; i < NSPANS; ++i) {
-                    span_boxes[i].initBounds();
-                }
-                INT_TYPE span_counts[NSPANS];
-                for (INT_TYPE i = 0; i < NSPANS; ++i) {
-                    span_counts[i] = 0;
-                }
-                const INT_TYPE startbox = (taski*uint64(nboxes))/ntasks;
-                const INT_TYPE endbox = ((taski+1)*uint64(nboxes))/ntasks;
-                for (INT_TYPE indexi = startbox; indexi != endbox; ++indexi) {
-                    const auto& box = boxes[indices[indexi]];
-                    const T sum = utBoxCenter(box, axis);
-                    const uint span_index = SYSclamp(int((sum-axis_min_x2)*axis_index_scale), int(0), int(NSPANS-1));
-                    ++span_counts[span_index];
-                    Box<T,NAXES>& span_box = span_boxes[span_index];
-                    span_box.combine(box);
-                }
-                // Copy the results out
-                const INT_TYPE dest_array_start = taski*NSPANS;
-                for (INT_TYPE i = 0; i < NSPANS; ++i) {
-                    parallel_boxes[dest_array_start+i] = span_boxes[i];
-                }
-                for (INT_TYPE i = 0; i < NSPANS; ++i) {
-                    parallel_counts[dest_array_start+i] = span_counts[i];
-                }
+        igl::parallel_for(
+          nboxes,
+          [&parallel_boxes,&parallel_counts](int n)
+          {
+            parallel_boxes.setSize( NSPANS*n);
+            parallel_counts.setSize(NSPANS*n);
+            for(int t = 0;t<n;t++)
+            {
+              for (INT_TYPE i = 0; i < NSPANS; ++i) 
+              {
+                parallel_boxes[t*NSPANS+i].initBounds();
+                parallel_counts[t*NSPANS+i] = 0;
+              }
             }
-        }, 0, 1);
+          },
+          [&parallel_boxes,&parallel_counts,&boxes,indices,axis,axis_min_x2,axis_index_scale](int j, int t)
+          {
+            const auto& box = boxes[indices[j]];
+            const T sum = utBoxCenter(box, axis);
+            const uint span_index = SYSclamp(int((sum-axis_min_x2)*axis_index_scale), int(0), int(NSPANS-1));
+            ++parallel_counts[t*NSPANS+span_index];
+            Box<T,NAXES>& span_box = parallel_boxes[t*NSPANS+span_index];
+            span_box.combine(box);
+          },
+          [&parallel_boxes,&parallel_counts,&span_boxes,&span_counts](int t)
+          {
+            for(int i = 0;i<NSPANS;i++)
+            {
+              span_counts[i] += parallel_counts[t*NSPANS + i];
+              span_boxes[i].combine(parallel_boxes[t*NSPANS + i]);
+            }
+          });
 
-        // Combine the partial results
-        for (INT_TYPE taski = 0; taski < ntasks; ++taski) {
-            const INT_TYPE dest_array_start = taski*NSPANS;
-            for (INT_TYPE i = 0; i < NSPANS; ++i) {
-                span_boxes[i].combine(parallel_boxes[dest_array_start+i]);
-            }
-        }
-        for (INT_TYPE taski = 0; taski < ntasks; ++taski) {
-            const INT_TYPE dest_array_start = taski*NSPANS;
-            for (INT_TYPE i = 0; i < NSPANS; ++i) {
-                span_counts[i] += parallel_counts[dest_array_start+i];
-            }
-        }
     }
 
     // Spans 0 to NSPANS-2
@@ -1481,12 +1374,15 @@ void BVH<N>::split(const Box<T,NAXES>& axes_minmax, const BOX_TYPE* boxes, SRC_I
 
 template<uint N>
 template<uint PARALLEL_THRESHOLD, typename SRC_INT_TYPE>
-void BVH<N>::adjustParallelChildNodes(INT_TYPE nparallel, UT_Array<Node>& nodes, Node& node, UT_Array<Node>* parallel_nodes, SRC_INT_TYPE* sub_indices) noexcept
+inline void BVH<N>::adjustParallelChildNodes(INT_TYPE nparallel, UT_Array<Node>& nodes, Node& node, UT_Array<Node>* parallel_nodes, SRC_INT_TYPE* sub_indices) noexcept
 {
-    UTparallelFor(UT_BlockedRange<INT_TYPE>(0,nparallel), [&node,&nodes,&parallel_nodes,&sub_indices](const UT_BlockedRange<INT_TYPE>& r) {
+  // Alec: No need to parallelize this...
+    //UTparallelFor(UT_BlockedRange<INT_TYPE>(0,nparallel), [&node,&nodes,&parallel_nodes,&sub_indices](const UT_BlockedRange<INT_TYPE>& r) {
         INT_TYPE counted_parallel = 0;
         INT_TYPE childi = 0;
-        for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
+        for(int taski = 0;taski < nparallel; taski++)
+        {
+        //for (INT_TYPE taski = r.begin(), end = r.end(); taski < end; ++taski) {
             // First, find which child this is
             INT_TYPE sub_nboxes;
             for (; childi < N; ++childi) {
@@ -1518,7 +1414,6 @@ void BVH<N>::adjustParallelChildNodes(INT_TYPE nparallel, UT_Array<Node>& nodes,
                 nodes[local_nodes_start+j] = local_node;
             }
         }
-    }, 0, 1);
 }
 
 template<uint N>
@@ -1673,4 +1568,5 @@ void BVH<N>::debugDump() const {
 
 } // UT namespace
 } // End HDK_Sample namespace
+}}
 #endif

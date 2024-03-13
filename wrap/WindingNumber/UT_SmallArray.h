@@ -33,6 +33,7 @@
 #include "SYS_Types.h"
 #include <utility>
 #include <stddef.h>
+namespace igl { namespace FastWindingNumber {
 
 /// An array class with the small buffer optimization, making it ideal for
 /// cases when you know it will only contain a few elements at the expense of
@@ -152,5 +153,6 @@ public:
 private:
     alignas(T) char myBuffer[MAX_ELEMS*sizeof(T)];
 };
+}}
 
 #endif // __UT_SMALLARRAY_H_INCLUDED__

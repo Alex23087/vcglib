@@ -32,6 +32,9 @@
 #include <limits>
 #include <type_traits>
 #include <sys/types.h>
+#include <stdint.h>
+
+namespace igl { namespace FastWindingNumber {
 
 /*
  * Integer types
@@ -58,7 +61,6 @@ typedef unsigned int	uint;
 #elif defined(MBSD)
     // On MBSD, int64/uint64 are also defined in the system headers so we must
     // declare these in the same way or else we get conflicts.
-    #include <stdint.h>
     typedef int64_t		int64;
     typedef uint64_t		uint64;
 #elif defined(AMD64)
@@ -150,5 +152,6 @@ typedef union SYS_FPRealUnionT<fpreal64>    SYS_FPRealUnionD;
 #define UT_ASSERT_MSG_P(ZZ, MM) ((void)0)
 #define UT_ASSERT_MSG(ZZ, MM)   ((void)0)
 /// @}
+}}
 
 #endif
