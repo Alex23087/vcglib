@@ -357,7 +357,11 @@ static inline fpreal64 SYSabs(fpreal64 a) { return ::fabs(a); }
  */
 
 #pragma once
-#ifdef __SSE__
+#ifndef __SSE__
+#include "sse2neon.h"
+#else 
+#include <emmintrin.h>
+#endif
 
 #ifndef __VM_SSEFunc__
 #define __VM_SSEFunc__
@@ -372,7 +376,7 @@ static inline fpreal64 SYSabs(fpreal64 a) { return ::fabs(a); }
 #define CPU_HAS_SIMD_INSTR	1
 #define VM_SSE_STYLE		1
 
-#include <emmintrin.h>
+
 
 #if defined(__SSE4_1__)
 #define VM_SSE41_STYLE		1
@@ -735,7 +739,7 @@ vm_allbits(const v4si &a)
 }}
 
 #endif
-#endif
+// #endif
 /*
  * Copyright (c) 2018 Side Effects Software Inc.
  *
@@ -4040,7 +4044,7 @@ using UT_BVH = UT::BVH<N>;
 
 
 
-#include <igl/parallel_for.h>
+#include "parallel_for.h"
 
 #include <iostream>
 #include <algorithm>
@@ -6023,7 +6027,6 @@ inline void ut_ArrayImplFree(void *p)
 
 
 
-#include <igl/parallel_for.h>
 #include <type_traits>
 #include <utility>
 
