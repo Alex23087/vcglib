@@ -1,5 +1,6 @@
 #pragma once
 
+#include "vcg/complex/algorithms/create/platonic.h"
 #ifndef OPENVDB_VCGLIB_ADAPTER_H
 #define OPENVDB_VCGLIB_ADAPTER_H
 
@@ -64,30 +65,35 @@ class OpenVDBAdapter {
         assert(voxelSize > 0);
 
         openvdb::math::Transform::Ptr xform = openvdb::math::Transform::createLinearTransform(voxelSize);
-
         meshDataAdapter.setMesh(m);
         meshDataAdapter.setTransform(xform);
-
+        std::vector<Point3f> sampleVec;
+        sampleVec.reserve(10000000);
         windingNumber.init(*m);
-        auto interiorTest = [xform, &windingNumber = windingNumber, voxelSize = voxelSize](const openvdb::Coord &coord) -> bool
+        int sampleNum=0;
+        auto interiorTest = [xform, &sampleNum=sampleNum, &windingNumber = windingNumber, &sampleVec](const openvdb::Coord &coord) -> bool
         {
             auto worldCoord = xform->indexToWorld(coord);
             // Using float instead of ScalarType because the winding number lib uses float internally.
-            auto coordV = std::vector<float>{
-                static_cast<float>(worldCoord.x()),
-                static_cast<float>(worldCoord.y()),
-                static_cast<float>(worldCoord.z())
-            };
-            auto wn = windingNumber.computeWindingNumber(coordV, voxelSize);
+            sampleNum++;
+            Point3f coordV(static_cast<float>(worldCoord[0]), static_cast<float>(worldCoord[1]), static_cast<float>(worldCoord[2]));
+            //Point3f coordV(static_cast<float>(coord[0]), static_cast<float>(coord[1]), static_cast<float>(coord[2]));
+            sampleVec.push_back(coordV);
+            float wn=0.6;
+            wn = windingNumber.computeWindingNumber(coordV, 2.0);
             return fabs(wn) >= 0.5f ? true : false;
         };
 
-        float outerBand = (isovalue > 0 ? isovalue/voxelSize : 0.0f) + 0.5f;
-        float innerBand = (isovalue < 0 ? (-isovalue)/voxelSize : 0.0f) + 0.5f;
+        float outerBand = (isovalue > 0 ? isovalue/voxelSize : 0.0f) + 1.1f;
+        float innerBand = (isovalue < 0 ? (-isovalue)/voxelSize : 0.0f) +1.1f;
 
         // NullInterrupter needed because openvdb does not correctly pass parameters otherwise.
         openvdb::util::NullInterrupter nullInterrupter;
-        grid = openvdb::tools::meshToVolume<GridType>(nullInterrupter, meshDataAdapter, *xform, outerBand, innerBand, 0, nullptr, interiorTest, openvdb::tools::EVAL_EVERY_TILE);
+        grid = openvdb::tools::meshToVolume<GridType>(nullInterrupter, meshDataAdapter, *xform, 1, 1, 0, nullptr, interiorTest, openvdb::tools::EVAL_EVERY_TILE);
+        printf("SampleVec.size() %i\n",sampleNum);
+        MeshType montecarloMesh;
+        tri::BuildMeshFromCoordVector(montecarloMesh, sampleVec);
+        tri::io::ExporterPLY<MeshType>::Save(montecarloMesh,"montecarloss.ply",tri::io::Mask::IOM_VERTCOLOR);
     }
 
     void meshToLevelSet(){
