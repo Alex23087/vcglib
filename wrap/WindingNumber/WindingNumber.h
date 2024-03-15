@@ -42,9 +42,9 @@ class WindingNumber {
 
 		solid_angle.init(m.face.size(), mTriIndex.data(), m.vert.size(), &U[0], order);
 	}
-
-	ScalarType computeWindingNumber(std::vector<ScalarType> coordV, double accuracy_scale = 2.0){
-		auto pt = igl::FastWindingNumber::HDK_Sample::UT_Vector3T<float>(coordV.data());
+    
+    ScalarType computeWindingNumber(Point3f p, double accuracy_scale = 2.0){
+		igl::FastWindingNumber::HDK_Sample::UT_Vector3T<float> pt = igl::FastWindingNumber::HDK_Sample::UT_Vector3T<float>(p.V());
 		return solid_angle.computeSolidAngle(pt, accuracy_scale) / (4.0 * M_PI);
 	}
 };
