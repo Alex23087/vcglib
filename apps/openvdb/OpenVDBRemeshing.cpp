@@ -29,8 +29,10 @@
 #include <vcg/complex/complex.h>
 #include <vcg/complex/append.h>
 #include <vcg/complex/allocate.h>
+#include <vcg/complex/algorithms/point_sampling.h>
 #include <wrap/io_trimesh/import.h>
 #include <wrap/io_trimesh/export_obj.h>
+#include <wrap/io_trimesh/export_ply.h>
 #include <wrap/openvdb/OpenVDBAdapter.h>
 
 using namespace vcg;
@@ -43,10 +45,39 @@ struct MyUsedTypes : public UsedTypes<
 	Use<MyFace>     ::AsFaceType
 >{};
 
-class MyVertex  : public Vertex<MyUsedTypes, vertex::Coord3f, vertex::BitFlags>{};
+class MyVertex  : public Vertex<MyUsedTypes, vertex::Coord3f, vertex::Color4b, vertex::Normal3f, vertex::BitFlags>{};
 class MyFace    : public Face<MyUsedTypes, face::VertexRef, vertex::BitFlags> {};
 class MyMesh    : public tri::TriMesh< vector<MyVertex>, vector<MyFace>> {};
 
+void testWindingAngle(MyMesh &m)
+{
+    tri::WindingNumber<MyMesh> windingNumber;
+    windingNumber.init(m);
+    printf("Testing Winding Angle\n");
+    int t0=clock();
+    int sampleNum=10000;
+    MyMesh montecarloMesh;
+    float offset= m.bbox.Diag() * 0.01f;
+    typedef tri::MeshSampler<MyMesh> BaseSampler;
+    tri::MeshSampler<MyMesh> mcSampler(montecarloMesh);
+    tri::SurfaceSampling<MyMesh,BaseSampler>::Montecarlo(m, mcSampler, sampleNum);
+    
+    for(int i=0;i<montecarloMesh.VN();++i)
+    {
+        montecarloMesh.vert[i].P()[0]+=offset;
+        Point3f p = {montecarloMesh.vert[i].P()[0],montecarloMesh.vert[i].P()[1],montecarloMesh.vert[i].P()[2]};
+
+        auto wa = windingNumber.computeWindingNumber(p,2.0f);
+        if (wa<0.5) montecarloMesh.vert[i].C()=Color4b(Color4b::Red);
+        else montecarloMesh.vert[i].C()=Color4b(Color4b::Green);            
+    }
+    int t1=clock();
+    printf("Evaluated %i samples in %f secs\n",sampleNum,(t1-t0)/float(CLOCKS_PER_SEC));
+    
+    // Save the mesh with montecarlo samples as ply with color
+    tri::io::ExporterPLY<MyMesh>::Save(montecarloMesh,"montecarlo.ply",tri::io::Mask::IOM_VERTCOLOR);
+    
+}
 int main( int argc, char **argv )
 {
 	MyMesh original,toremesh;
@@ -62,36 +93,42 @@ int main( int argc, char **argv )
 		printf("Error reading file  %s\n",argv[1]);
 		exit(0);
 	}
-
+    // Mesh cleaning
+    tri::Clean<MyMesh>::RemoveUnreferencedVertex(original);
+    vcg::tri::Allocator<MyMesh>::CompactEveryVector(original);
+    tri::UpdateBounding<MyMesh>::Box(original);
+    printf(" Input mesh %8i v %8i f\n",original.VN(),original.FN());
+    testWindingAngle(original);
 	assert(original.VN()>0);
 
 	// OpenVDB remeshing parameters
-	double targetLenPerc = 0.2;
+	double targetLenPerc = 1.2;
 	double isovalue = 0.0;
 	double adaptivity = 0.0;
 	bool useLevelSet = false;	// Use level set instead of volume
 	if(argc>=3) targetLenPerc = atof(argv[2]);
 	if(argc>=4) isovalue = atof(argv[3]);
 	if(argc>=5) adaptivity = atof(argv[4]);
-	if(argc>=6) useLevelSet = atoi(argv[5]);
+    if(argc>=6) useLevelSet = true;
 	
 	double voxelSize = targetLenPerc * (original.bbox.Diag() / 100.0);
-
-	// Mesh cleaning
-	tri::Clean<MyMesh>::RemoveUnreferencedVertex(original);
-	vcg::tri::Allocator<MyMesh>::CompactEveryVector(original);
-	tri::UpdateBounding<MyMesh>::Box(original);
+    printf("Voxel Size %f\n",voxelSize);
+    printf("Box size %.3f %.3f %.3f  - %i x %i x %i\n",original.bbox.DimX(),original.bbox.DimY(),original.bbox.DimZ(),
+           int(original.bbox.DimX()/voxelSize),int(original.bbox.DimY()/voxelSize),int(original.bbox.DimZ()/voxelSize));
+    
 
 	// OpenVDB mesh to volume
 	vcg::tri::OpenVDBAdapter<MyMesh> adapter;
-
-	printf(" Input mesh %8i v %8i f\n",original.VN(),original.FN());
-
+	
 	adapter.setMesh(&original);
 	adapter.setVoxelSize(voxelSize);
-	if(useLevelSet){
+    adapter.setIsovalue(isovalue);
+    
+    if(useLevelSet){
+        printf("Building LevelSet\n");
 		adapter.meshToLevelSet();
 	}else{
+        printf("Building Volume using winding number\n");
 		adapter.meshToVolume();
 	}
 
@@ -99,8 +136,6 @@ int main( int argc, char **argv )
 	adapter.setIsovalue(isovalue);
 	adapter.setAdaptivity(adaptivity);
 	adapter.volumeToMesh(toremesh);
-
-	assert(toremesh.VN()>0);
 
 	tri::Clean<MyMesh>::RemoveUnreferencedVertex(toremesh);
 	vcg::tri::Allocator<MyMesh>::CompactEveryVector(toremesh);
