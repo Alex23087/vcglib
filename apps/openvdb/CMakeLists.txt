@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.12)
 project(openvdb-remesher)
 
 set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_MODULE_PATH "/opt/homebrew/lib/cmake/OpenVDB/")  # needed for badly installed openvdb on macos...
 
 find_package(OpenVDB REQUIRED)
 find_package(TBB REQUIRED)
@@ -17,14 +18,11 @@ add_executable(${PROJECT_NAME} OpenVDBRemeshing.cpp
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${VCGLIB_DIR})
-target_include_directories(${PROJECT_NAME} PRIVATE ${TBB_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
-target_include_directories(${PROJECT_NAME} PRIVATE ${OpenVDB_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE ${EIGEN_DIR})
 
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  ${OpenVDB_LIBRARIES}
-  tbb
-  ${Boost_LIBRARIES}
+  OpenVDB::openvdb
+	TBB::tbb
+  Boost::boost
 )
