@@ -24,11 +24,11 @@ jobs:
     - name: Setup env Linux
       if: runner.os == 'Linux'
       run: |
-        sudo apt-get install -y ninja-build
+        sudo apt-get install -y ninja-build libopenvdb-dev
     - name: Setup env macOS
       if: runner.os == 'macOS'
       run: |
-        brew install ninja
+        brew install ninja openvdb
     - name: Build Samples
       shell: bash
       run: |
